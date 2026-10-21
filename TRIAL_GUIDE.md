@@ -40,10 +40,10 @@ ksinfo
 ```
 
 ```text
-GPU_TYPE              NODES  GPUS  USED  FREE  WAITING_GPUS  GPU_MEM  NOTE
-NVIDIA-RTX-A5000      1      10    10    0     -             24GB
-Tesla-V100-SXM2-16GB  4      32    2     30    8 (1 jobs)    16GB
-rtxpro6000            1      8     4     4     -             -        restricted (your namespace: no access)
+GPU_TYPE                                      NODES  GPUS  USED  FREE  WAITING_GPUS  GPU_MEM  NOTE
+NVIDIA-RTX-A5000                              1      10    10    0     -             24GB
+NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition  1      8     4     4     -             96GB     restricted (your namespace: no access)
+Tesla-V100-SXM2-16GB                          4      32    2     30    8 (1 jobs)    16GB
 ```
 
 選 `FREE` 有空位、記憶體夠的型號。`restricted` 表示需要另外開通，`no access` 的型號提交了也只會一直排隊。

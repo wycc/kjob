@@ -189,7 +189,8 @@ def resolve_gpu_types(values: list[str], node: str | None, snapshot=None) -> tup
     """Map -g values to nvidia.com/gpu.product labels using the GPU types ksinfo shows.
 
     Exact type or host names win; otherwise a part of a name must match exactly one type ("a5000", "V100-SXM2").
-    A host name, or a type that exists only on an unlabeled node (e.g. rtxpro6000), becomes a node pin (-w)."""
+    A host name, or a type that exists only on an unlabeled node, becomes a node pin (-w); a host name that is also
+    part of that host's own labeled type (e.g. rtxpro6000) selects the type, so it can be combined with others."""
     out = []
     snap = snapshot
     for v in values:
@@ -226,6 +227,8 @@ def resolve_gpu_types(values: list[str], node: str | None, snapshot=None) -> tup
         host = [n for n in nodes if _norm(n["name"]) == q]
         exact = [t for t in types if _norm(t) == q]
         partial = [t for t in types if q and q in _norm(t)]
+        if host and not exact and cluster.node_type(host[0]) in partial and host[0]["product"]:
+            host = []                           # "rtxpro6000" names the host and its labeled type: use the type
         if host and not exact:
             if len(values) > 1 or node not in (None, host[0]["name"]):
                 raise ValueError(f"{v!r} is a node name; use it alone or with -w {host[0]['name']}.")

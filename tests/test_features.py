@@ -96,6 +96,25 @@ class SnapshotTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unknown GPU type"):
                 cli.resolve_gpu_types(["rtxpro6000"], None)
 
+    def test_host_name_that_names_its_labeled_type_selects_the_type(self):
+        api = fake_api()
+        api.list_node.return_value.items = [
+            node("hs5800-2", 8, "Tesla-V100-SXM2-16GB"),
+            node("rtxpro6000", 8, "NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition", taint="restricted-gpu")]
+        snap = cluster.build_snapshot(api)
+        rtx = "NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition"
+        self.assertEqual(cli.resolve_gpu_types(["rtxpro6000"], None, snap), ([rtx], None))
+        self.assertEqual(cli.resolve_gpu_types(["v100", "rtxpro6000"], None, snap), (["v100", rtx], None))
+        self.assertEqual(cli.resolve_gpu_types(["hs5800-2"], None, snap), ([], "hs5800-2"))     # plain host name pins
+        with self.assertRaisesRegex(ValueError, "node name"):
+            cli.resolve_gpu_types(["v100", "hs5800-2"], None, snap)
+
+    def test_cordon_taint_is_not_a_restriction(self):
+        api = fake_api()
+        cordoned = node("hs5800-1", 8, "Tesla-V100-SXM2-16GB", taint="node.kubernetes.io/unschedulable")
+        api.list_node.return_value.items = [cordoned]
+        self.assertEqual(cluster.build_snapshot(api)["nodes"][0]["restricted"], [])
+
     def test_pinned_node_must_be_a_gpu_node(self):
         snap = cluster.build_snapshot(fake_api())
         with mock.patch.object(cluster, "load_snapshot", return_value=snap):

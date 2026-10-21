@@ -93,7 +93,8 @@ def build_snapshot(core_api: client.CoreV1Api | None = None, hide_names: bool = 
             "memory_gib": round(float(parse_quantity(alloc.get("memory", "0"))) / 2**30, 1), "memory_used_gib": 0.0,
             "ready": ready, "schedulable": not n.spec.unschedulable,
             "restricted": sorted({f"{t.key}={t.value}" if t.value else t.key for t in n.spec.taints or []
-                                  if t.effect in ("NoSchedule", "NoExecute")}),
+                                  if t.effect in ("NoSchedule", "NoExecute")
+                                  and not t.key.startswith("node.kubernetes.io/")}),  # cordon/not-ready: shown as STATE
         }
     workloads = []
     now = _now()

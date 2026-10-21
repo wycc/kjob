@@ -39,7 +39,7 @@ kacct                                     # 5. 看歷史紀錄與結束代碼
 
 ```bash
 ksub -G 1 train.py                        # 不寫 -g：任何有空的整張 GPU
-ksub -G 1 -g v100,a5000 train.py          # 這幾種型號任一種都可以
+ksub -G 1 -g v100,rtxpro6000 train.py     # 這幾種型號任一種都可以（受限型號要 namespace 已開通）
 ksub -G 1 -g v100 train.py                # 只要 V100
 ksub -G 4 -c 16 --mem 64Gi --shm 16Gi torchrun --standalone --nproc_per_node=4 train.py   # 同一台機器 4 張 GPU（DDP）
 ```
