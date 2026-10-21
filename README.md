@@ -7,7 +7,9 @@ image、工作目錄和共用磁碟，所以程式、資料、虛擬環境在工
 指令仿照國網（Slurm）：`ksub` ≈ `sbatch`、`ksrun` ≈ `srun`、`kqueue` ≈ `squeue`、`ksinfo` ≈ `sinfo`、
 `kacct` ≈ `sacct`、`kcancel` ≈ `scancel`。
 
-* Notebook 本身不用占 GPU：訓練交給工作，跑完就釋放。
+* Notebook 本身不用占 GPU：工作另外從整個叢集拿 GPU（不是用 Notebook 的卡），跑完就釋放；張數只受 namespace 的
+  GPU 配額限制。
+* 不指定型號時，自動排到任何一張有空的整張 GPU；沒有空的就排隊。
 * 看得到整個叢集：每種 GPU 有幾張、用了幾張、誰在用、多少人在排隊。
 * 可以讓 AI 助手代你提交：內附 Claude Code 等工具可用的 skill。
 * 不同機器的 GPU 不一樣（例如 V100、A5000、A30、RTX PRO 6000），用 `ksinfo` 查目前這台叢集有哪些。
@@ -27,11 +29,23 @@ kinfo      # 確認安裝成功：顯示 namespace、工作會繼承的磁碟、
 
 ```bash
 ksinfo                                    # 1. 看哪種 GPU 有空
-ksub -J test -G 1 -g v100 -c 4 --mem 16Gi -t 2:00:00 train.py --epochs 10   # 2. 提交
+ksub -J test -G 1 -c 4 --mem 16Gi -t 2:00:00 train.py --epochs 10   # 2. 提交到任何有空的 GPU
 kqueue                                    # 3. 看自己的工作
 klogs test -f                             # 4. 即時看輸出（Ctrl-C 只停止觀看）
 kacct                                     # 5. 看歷史紀錄與結束代碼
 ```
+
+選 GPU 型號與張數：
+
+```bash
+ksub -G 1 train.py                        # 不寫 -g：任何有空的整張 GPU
+ksub -G 1 -g v100,a5000 train.py          # 這幾種型號任一種都可以
+ksub -G 1 -g v100 train.py                # 只要 V100
+ksub -G 4 -c 16 --mem 64Gi --shm 16Gi torchrun --standalone --nproc_per_node=4 train.py   # 同一台機器 4 張 GPU（DDP）
+```
+
+多張 GPU 要程式本身支援（DDP / `torchrun`），否則只會用到第一張；一個工作在同一台機器上，不支援跨節點分散式訓練。
+多卡範例見 [TRIAL_GUIDE.md](TRIAL_GUIDE.md) 第 7 步。
 
 完整新手教學請看 [TRIAL_GUIDE.md](TRIAL_GUIDE.md)，簡報版在 [docs/kjob-tutorial.pdf](docs/kjob-tutorial.pdf)。
 
