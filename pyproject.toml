@@ -1,12 +1,24 @@
 [project]
 name = "kjob"
-version = "0.1.0"
+version = "0.5.0"
 description = "Slurm-like submission of scripts as Kubeflow PyTorchJobs that mirror the current notebook"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 dependencies = ["kubernetes>=28"]
 
 [project.scripts]
 kjob = "kjob.cli:main"
+ksub = "kjob.cli:ksub"
+ksrun = "kjob.cli:ksrun"
+kwait = "kjob.cli:kwait"
+kqueue = "kjob.cli:kqueue"
+kshow = "kjob.cli:kshow"
+klogs = "kjob.cli:klogs"
+kexec = "kjob.cli:kexec"
+kcancel = "kjob.cli:kcancel"
+kclean = "kjob.cli:kclean"
+kacct = "kjob.cli:kacct"
+ksinfo = "kjob.cli:ksinfo"
+kinfo = "kjob.cli:kinfo"
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -14,3 +26,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["kjob"]
+
+[tool.setuptools.package-data]
+kjob = ["skills/*/SKILL.md"]

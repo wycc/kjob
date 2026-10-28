@@ -1,0 +1,123 @@
+# kjob cluster status service (optional, installed once per cluster by an administrator).
+#
+# Notebook service accounts cannot list nodes or other namespaces, so `ksinfo` and `kqueue -A` read a summary that
+# this Deployment refreshes every 30 s: ConfigMap kjob-system/kjob-cluster-status. The summary holds only scheduling
+# facts: per GPU node the type, GPU/CPU/memory totals and requests, taints; per GPU workload the namespace, workload
+# name, GPUs, node, state and wait reason. Add --hide-names to the command below to publish namespaces only
+# (it also removes quoted names, e.g. volume names, from wait reasons). Only service accounts (the Notebooks) can
+# read it. The collector itself can read every pod spec in the cluster, so install kjob from a pinned commit.
+#
+#   kubectl apply -f deploy/cluster-status.yaml      # install / update
+#   kubectl delete -f deploy/cluster-status.yaml     # remove everything again
+#
+# The pod installs kjob from GitHub at start-up (outbound HTTPS). KJOB_SOURCE is pinned to a reviewed commit;
+# change the SHA deliberately when upgrading.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kjob-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kjob-status
+  namespace: kjob-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kjob-status-collector
+rules:
+  - apiGroups: [""]
+    resources: [nodes, pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kjob-status-collector
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kjob-status-collector}
+subjects:
+  - {kind: ServiceAccount, name: kjob-status, namespace: kjob-system}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kjob-cluster-status
+  namespace: kjob-system
+  labels: {app.kubernetes.io/managed-by: kjob}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kjob-status-writer
+  namespace: kjob-system
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [kjob-cluster-status]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kjob-status-writer
+  namespace: kjob-system
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: kjob-status-writer}
+subjects:
+  - {kind: ServiceAccount, name: kjob-status, namespace: kjob-system}
+---
+# Every service account (all Notebooks) may read the summary, nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kjob-status-viewer
+  namespace: kjob-system
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [kjob-cluster-status]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kjob-status-viewer
+  namespace: kjob-system
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: kjob-status-viewer}
+subjects:
+  - {kind: Group, name: "system:serviceaccounts", apiGroup: rbac.authorization.k8s.io}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kjob-status
+  namespace: kjob-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: kjob-status}
+  template:
+    metadata:
+      labels: {app: kjob-status}
+      annotations: {sidecar.istio.io/inject: "false"}
+    spec:
+      serviceAccountName: kjob-status
+      securityContext: {runAsUser: 65534, runAsGroup: 65534, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: publisher
+          image: python:3.12-slim
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: PYTHONPATH, value: /tmp/kjob-lib}
+            - {name: KJOB_SOURCE, value: "https://github.com/MarkJiang-maji/kjob/archive/c96cc2a078e5946cecea50d69d49b22ed5cc4592.tar.gz"}
+          command: [sh, -c]
+          args:
+            - >-
+              pip install --quiet --no-cache-dir --target /tmp/kjob-lib --only-binary=:all: "kubernetes==32.0.1" &&
+              pip install --quiet --no-cache-dir --target /tmp/kjob-lib --no-deps "$KJOB_SOURCE" &&
+              exec python -m kjob publish-status --interval 30
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          resources:
+            requests: {cpu: 20m, memory: 96Mi}
+            limits: {cpu: 500m, memory: 256Mi}

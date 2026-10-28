@@ -1,0 +1,3 @@
+#!/bin/bash
+# slurm-like alias: ksinfo -> kjob sinfo
+exec "${KJOB_PYTHON:-python3}" -m kjob sinfo "$@"

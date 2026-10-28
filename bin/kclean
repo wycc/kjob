@@ -1,3 +1,3 @@
 #!/bin/bash
 # slurm-like alias: kclean -> kjob clean
-exec "${KJOB_PYTHON:-/home/jovyan/dinov2/.venv/bin/python}" -m kjob clean "$@"
+exec "${KJOB_PYTHON:-python3}" -m kjob clean "$@"
